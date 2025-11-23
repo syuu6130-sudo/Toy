@@ -38,20 +38,46 @@ local function CreateOnionUI()
     corner.Parent = mainFrame
     
     -- タイトルバー
-    local title = Instance.new("TextLabel")
+    local title = Instance.new("Frame")
     title.Name = "Title"
     title.Size = UDim2.new(1, 0, 0, 45)
     title.Position = UDim2.new(0, 0, 0, 0)
     title.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
-    title.TextColor3 = Color3.fromRGB(255, 120, 255)
-    title.Text = "🎪 Onion Fling Toys 🎪"
-    title.TextSize = 18
-    title.Font = Enum.Font.GothamBold
+    title.BorderSizePixel = 0
     title.Parent = mainFrame
     
     local titleCorner = Instance.new("UICorner")
     titleCorner.CornerRadius = UDim.new(0, 10)
     titleCorner.Parent = title
+    
+    -- タイトルテキスト
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Name = "TitleLabel"
+    titleLabel.Size = UDim2.new(1, -100, 1, 0)
+    titleLabel.Position = UDim2.new(0, 10, 0, 0)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.TextColor3 = Color3.fromRGB(255, 120, 255)
+    titleLabel.Text = "🎪 Onion Fling Toys"
+    titleLabel.TextSize = 18
+    titleLabel.Font = Enum.Font.GothamBold
+    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    titleLabel.Parent = title
+    
+    -- 最小化ボタン
+    local minimizeBtn = Instance.new("TextButton")
+    minimizeBtn.Name = "MinimizeBtn"
+    minimizeBtn.Size = UDim2.new(0, 35, 0, 35)
+    minimizeBtn.Position = UDim2.new(1, -45, 0, 5)
+    minimizeBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+    minimizeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    minimizeBtn.Text = "−"
+    minimizeBtn.TextSize = 20
+    minimizeBtn.Font = Enum.Font.GothamBold
+    minimizeBtn.Parent = title
+    
+    local minBtnCorner = Instance.new("UICorner")
+    minBtnCorner.CornerRadius = UDim.new(0, 6)
+    minBtnCorner.Parent = minimizeBtn
     
     -- コントロールパネル
     local controlPanel = Instance.new("Frame")
@@ -147,7 +173,11 @@ local function CreateOnionUI()
     padding.PaddingBottom = UDim.new(0, 10)
     padding.Parent = scroll
     
-    return screenGui, scroll, powerLabel
+    -- 最小化状態の変数
+    local isMinimized = false
+    local originalSize = mainFrame.Size
+    
+    return screenGui, scroll, powerLabel, mainFrame, minimizeBtn, controlPanel, isMinimized, originalSize
 end
 
 -- Fling機能関数
@@ -412,7 +442,44 @@ end
 
 -- メイン初期化関数
 local function Initialize()
-    local ui, scroll, powerLabel = CreateOnionUI()
+    local ui, scroll, powerLabel, mainFrame, minimizeBtn, controlPanel, isMinimized, originalSize = CreateOnionUI()
+    
+    -- 最小化機能
+    minimizeBtn.MouseButton1Click:Connect(function()
+        isMinimized = not isMinimized
+        
+        if isMinimized then
+            -- 最小化
+            TweenService:Create(mainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
+                Size = UDim2.new(0, 380, 0, 45)
+            }):Play()
+            minimizeBtn.Text = "+"
+            controlPanel.Visible = false
+            scroll.Visible = false
+        else
+            -- 元に戻す
+            TweenService:Create(mainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
+                Size = originalSize
+            }):Play()
+            minimizeBtn.Text = "−"
+            wait(0.1)
+            controlPanel.Visible = true
+            scroll.Visible = true
+        end
+    end)
+    
+    -- 最小化ボタンのホバー効果
+    minimizeBtn.MouseEnter:Connect(function()
+        TweenService:Create(minimizeBtn, TweenInfo.new(0.2), {
+            BackgroundColor3 = Color3.fromRGB(255, 120, 255)
+        }):Play()
+    end)
+    
+    minimizeBtn.MouseLeave:Connect(function()
+        TweenService:Create(minimizeBtn, TweenInfo.new(0.2), {
+            BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+        }):Play()
+    end)
     
     -- Flingボタンを作成
     for _, fling in ipairs(flingList) do
@@ -426,7 +493,6 @@ local function Initialize()
     end)
     
     -- UIをドラッグ可能にする
-    local mainFrame = ui.MainFrame
     local titleBar = mainFrame.Title
     local dragging = false
     local dragInput, dragStart, startPos
@@ -465,6 +531,7 @@ local function Initialize()
     
     print("🎪 Onion Fling Toys UI 読み込み完了!")
     print("🎯 パワー調整可能なFling機能が利用可能です")
+    print("💡 タイトルバーをドラッグして移動、−ボタンで最小化できます")
 end
 
 -- スクリプト実行
