@@ -1,4 +1,4 @@
--- 超豪華おもちゃコレクション - Ultimate Toys Collection
+-- 超豪華おもちゃコレクション - Ultimate Toys Collection with Rayfield UI
 -- GitHub公開用・実際に動作するバージョン
 
 local Players = game:GetService("Players")
@@ -6,16 +6,18 @@ local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local Lighting = game:GetService("Lighting")
-local MarketplaceService = game:GetService("MarketplaceService")
 
 local player = Players.LocalPlayer
 local mouse = player:GetMouse()
+
+-- Rayfield UI Library 読み込み
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 -- 安全なスポーン位置取得
 local function GetSafeSpawnPosition()
     local character = player.Character
     if character and character:FindFirstChild("HumanoidRootPart") then
-        return character.HumanoidRootPart.Position + character.HumanoidRootPart.CFrame.LookVector * 15
+        return character.HumanoidRootPart.Position + character.HumanoidRootPart.CFrame.LookVector * 20
     end
     return Vector3.new(0, 25, 0)
 end
@@ -959,7 +961,6 @@ function UltimateToys.魔法の城()
     game:GetService("Debris"):AddItem(magicCastle, 35)
 end
 
--- 追加の豪華なおもちゃ関数...
 function UltimateToys.海底宮殿()
     local underwaterPalace = Instance.new("Model")
     underwaterPalace.Name = "海底宮殿"
@@ -1041,169 +1042,247 @@ function UltimateToys.海底宮殿()
     game:GetService("Debris"):AddItem(underwaterPalace, 30)
 end
 
--- 豪華なおもちゃリスト（日本語名）
-local toyList = {
-    {"🏰 巨大マクドナルド", UltimateToys.巨大マクドナルド},
-    {"☕ スターバックスカフェ", UltimateToys.スターバックスカフェ},
-    {"🎡 夢の遊園地", UltimateToys.夢の遊園地},
-    {"🏯 日本の名城", UltimateToys.日本の名城},
-    {"🚀 宇宙ステーション", UltimateToys.宇宙ステーション},
-    {"🏙️ 未来都市", UltimateToys.未来都市},
-    {"🐉 ドラゴン召喚", UltimateToys.ドラゴン召喚},
-    {"🔮 魔法の城", UltimateToys.魔法の城},
-    {"🐠 海底宮殿", UltimateToys.海底宮殿}
-}
+-- Rayfield UI の作成
+local Window = Rayfield:CreateWindow({
+   Name = "🎮 超豪華おもちゃコレクション",
+   LoadingTitle = "Fling things and people - 神級おもちゃコレクション",
+   LoadingSubtitle = "by 日本語対応 超凝り版",
+   ConfigurationSaving = {
+      Enabled = true,
+      FolderName = "UltimateToys",
+      FileName = "UltimateConfig"
+   },
+   Discord = {
+      Enabled = false,
+      Invite = "noinvitelink",
+      RememberJoins = true
+   },
+   KeySystem = false,
+})
 
--- シンプルで効果的なUI作成
-local function CreateUltimateUI()
-    local screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "UltimateToysUI"
-    screenGui.Parent = player:WaitForChild("PlayerGui")
-    
-    local mainFrame = Instance.new("Frame")
-    mainFrame.Name = "MainFrame"
-    mainFrame.Size = UDim2.new(0, 400, 0, 550)
-    mainFrame.Position = UDim2.new(0, 20, 0, 20)
-    mainFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    mainFrame.BorderSizePixel = 0
-    mainFrame.Parent = screenGui
-    
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 10)
-    corner.Parent = mainFrame
-    
-    local title = Instance.new("TextLabel")
-    title.Name = "Title"
-    title.Size = UDim2.new(1, 0, 0, 50)
-    title.Position = UDim2.new(0, 0, 0, 0)
-    title.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-    title.TextColor3 = Color3.fromRGB(255, 255, 255)
-    title.Text = "🎮 超豪華おもちゃコレクション 🎮"
-    title.TextScaled = true
-    title.Font = Enum.Font.GothamBold
-    title.Parent = mainFrame
-    
-    local scroll = Instance.new("ScrollingFrame")
-    scroll.Name = "Scroll"
-    scroll.Size = UDim2.new(1, -20, 1, -70)
-    scroll.Position = UDim2.new(0, 10, 0, 60)
-    scroll.BackgroundTransparency = 1
-    scroll.ScrollBarThickness = 8
-    scroll.Parent = mainFrame
-    
-    local layout = Instance.new("UIListLayout")
-    layout.Padding = UDim.new(0, 8)
-    layout.Parent = scroll
-    
-    return screenGui, scroll
-end
+-- メインタブの作成
+local MainTab = Window:CreateTab("🏗️ 巨大建築物", 4483362458)
 
--- おもちゃボタン作成関数
-local function CreateToyButton(scrollFrame, toyName, toyFunction)
-    local button = Instance.new("TextButton")
-    button.Name = "ToyButton_" .. string.sub(toyName, 4)
-    button.Size = UDim2.new(1, 0, 0, 45)
-    button.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-    button.TextColor3 = Color3.fromRGB(255, 255, 255)
-    button.Text = toyName
-    button.Font = Enum.Font.Gotham
-    button.TextScaled = true
-    button.Parent = scrollFrame
-    
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 8)
-    corner.Parent = button
-    
-    button.MouseButton1Click:Connect(function()
-        pcall(function()
-            toyFunction()
-            print("超豪華おもちゃ起動: " .. toyName)
-        end)
-    end)
-    
-    return button
-end
+-- 建築物セクション
+local BuildingsSection = MainTab:CreateSection("🏢 リアルな建築物")
 
--- メイン初期化関数
-local function InitializeUltimateToys()
-    local ui, scroll = CreateUltimateUI()
-    
-    -- おもちゃボタンを作成
-    for i, toy in ipairs(toyList) do
-        CreateToyButton(scroll, toy[1], toy[2])
-    end
-    
-    -- UIをドラッグ可能にする
-    local mainFrame = ui.MainFrame
-    local dragging = false
-    local dragInput, dragStart, startPos
-    
-    mainFrame.Title.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = true
-            dragStart = input.Position
-            startPos = mainFrame.Position
-            
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    dragging = false
-                end
-            end)
-        end
-    end)
-    
-    mainFrame.Title.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement then
-            dragInput = input
-        end
-    end)
-    
-    UserInputService.InputChanged:Connect(function(input)
-        if dragging and input == dragInput then
-            local delta = input.Position - dragStart
-            mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X,
-                                          startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-        end
-    end)
-    
-    -- クリーンアップボタン
-    local cleanupButton = Instance.new("TextButton")
-    cleanupButton.Name = "CleanupButton"
-    cleanupButton.Size = UDim2.new(1, -20, 0, 40)
-    cleanupButton.Position = UDim2.new(0, 10, 1, -50)
-    cleanupButton.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
-    cleanupButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    cleanupButton.Text = "🧹 おもちゃ全消去"
-    cleanupButton.Font = Enum.Font.GothamBold
-    cleanupButton.TextScaled = true
-    cleanupButton.Parent = mainFrame
-    
-    local cleanupCorner = Instance.new("UICorner")
-    cleanupCorner.CornerRadius = UDim.new(0, 6)
-    cleanupCorner.Parent = cleanupButton
-    
-    cleanupButton.MouseButton1Click:Connect(function()
-        for _, obj in pairs(workspace:GetChildren()) do
-            if obj:IsA("Model") and (string.find(obj.Name, "マクドナルド") or 
-               string.find(obj.Name, "スターバックス") or 
-               string.find(obj.Name, "遊園地") or
-               string.find(obj.Name, "城") or
-               string.find(obj.Name, "ステーション") or
-               string.find(obj.Name, "都市") or
-               string.find(obj.Name, "龍") or
-               string.find(obj.Name, "魔法") or
-               string.find(obj.Name, "宮殿")) then
-                obj:Destroy()
-            end
-        end
-    end)
-    
-    print("🎮 超豪華おもちゃコレクション 読み込み完了!")
-    print("🏰 巨大建築物: マクドナルド、スターバックス、遊園地、城")
-    print("🚀 スペシャル: 宇宙ステーション、未来都市、ドラゴン")
-    print("🔮 マジック: 魔法の城、海底宮殿")
-    print("🎯 総おもちゃ数: 9種類の超豪華おもちゃ")
-end
+MainTab:CreateButton({
+   Name = "🏰 巨大マクドナルド",
+   Callback = function()
+       UltimateToys.巨大マクドナルド()
+       Rayfield:Notify({
+           Title = "マクドナルド建設完了！",
+           Content = "黄金のアーチが輝いています！",
+           Duration = 6.5,
+           Image = 4483362458,
+       })
+   end,
+})
 
--- スクリプト実行
-InitializeUltimateToys()
+MainTab:CreateButton({
+   Name = "☕ スターバックスカフェ", 
+   Callback = function()
+       UltimateToys.スターバックスカフェ()
+       Rayfield:Notify({
+           Title = "スターバックスオープン！",
+           Content = "温かいコーヒーの香りが漂っています",
+           Duration = 6.5,
+           Image = 4483362458,
+       })
+   end,
+})
+
+MainTab:CreateButton({
+   Name = "🎡 夢の遊園地",
+   Callback = function()
+       UltimateToys.夢の遊園地()
+       Rayfield:Notify({
+           Title = "遊園地が完成！",
+           Content = "観覧車とメリーゴーラウンドが回り始めました",
+           Duration = 6.5,
+           Image = 4483362458,
+       })
+   end,
+})
+
+MainTab:CreateButton({
+   Name = "🏯 日本の名城",
+   Callback = function()
+       UltimateToys.日本の名城()
+       Rayfield:Notify({
+           Title = "お城が完成！",
+           Content = "桜の花びらが舞い散っています",
+           Duration = 6.5,
+           Image = 4483362458,
+       })
+   end,
+})
+
+-- スペシャルタブの作成
+local SpecialTab = Window:CreateTab("🚀 スペシャル建造物", 4483362458)
+
+local SpecialSection = SpecialTab:CreateSection("🌌 特別な建造物")
+
+SpecialTab:CreateButton({
+   Name = "🚀 宇宙ステーション",
+   Callback = function()
+       UltimateToys.宇宙ステーション()
+       Rayfield:Notify({
+           Title = "宇宙ステーション展開！",
+           Content = "星々が輝く宇宙空間に浮かんでいます",
+           Duration = 6.5,
+           Image = 4483362458,
+       })
+   end,
+})
+
+SpecialTab:CreateButton({
+   Name = "🏙️ 未来都市",
+   Callback = function()
+       UltimateToys.未来都市()
+       Rayfield:Notify({
+           Title = "未来都市が出現！",
+           Content = "超高層ビルが立ち並ぶ未来の街",
+           Duration = 6.5,
+           Image = 4483362458,
+       })
+   end,
+})
+
+SpecialTab:CreateButton({
+   Name = "🐠 海底宮殿",
+   Callback = function()
+       UltimateToys.海底宮殿()
+       Rayfield:Notify({
+           Title = "海底宮殿が完成！",
+           Content = "神秘的な海底世界が広がります",
+           Duration = 6.5,
+           Image = 4483362458,
+       })
+   end,
+})
+
+-- マジックタブの作成
+local MagicTab = Window:CreateTab("🔮 魔法とファンタジー", 4483362458)
+
+local MagicSection = MagicTab:CreateSection("✨ 魔法の世界")
+
+MagicTab:CreateButton({
+   Name = "🐉 ドラゴン召喚",
+   Callback = function()
+       UltimateToys.ドラゴン召喚()
+       Rayfield:Notify({
+           Title = "ドラゴン召喚！",
+           Content = "伝説の龍が空を舞います",
+           Duration = 6.5,
+           Image = 4483362458,
+       })
+   end,
+})
+
+MagicTab:CreateButton({
+   Name = "🔮 魔法の城",
+   Callback = function()
+       UltimateToys.魔法の城()
+       Rayfield:Notify({
+           Title = "魔法の城が出現！",
+           Content = "魔法陣が輝き始めました",
+           Duration = 6.5,
+           Image = 4483362458,
+       })
+   end,
+})
+
+-- ユーティリティタブの作成
+local UtilityTab = Window:CreateTab("⚙️ ユーティリティ", 4483362458)
+
+local UtilitySection = UtilityTab:CreateSection("🔧 便利機能")
+
+UtilityTab:CreateButton({
+   Name = "🧹 おもちゃ全消去",
+   Callback = function()
+       for _, obj in pairs(workspace:GetChildren()) do
+           if obj:IsA("Model") and (string.find(obj.Name, "マクドナルド") or 
+              string.find(obj.Name, "スターバックス") or 
+              string.find(obj.Name, "遊園地") or
+              string.find(obj.Name, "城") or
+              string.find(obj.Name, "ステーション") or
+              string.find(obj.Name, "都市") or
+              string.find(obj.Name, "龍") or
+              string.find(obj.Name, "魔法") or
+              string.find(obj.Name, "宮殿")) then
+               obj:Destroy()
+           end
+       end
+       Rayfield:Notify({
+           Title = "クリーンアップ完了",
+           Content = "すべてのおもちゃを消去しました",
+           Duration = 4,
+           Image = 4483362458,
+       })
+   end,
+})
+
+-- 設定タブの作成
+local SettingsTab = Window:CreateTab("⚙️ 設定", 4483362458)
+
+local SettingsSection = SettingsTab:CreateSection("🔧 設定")
+
+SettingsTab:CreateToggle({
+   Name = "デバッグモード",
+   CurrentValue = false,
+   Flag = "DebugMode",
+   Callback = function(Value)
+       print("デバッグモード:", Value)
+   end,
+})
+
+SettingsTab:CreateSlider({
+   Name = "自動消去時間",
+   Range = {10, 120},
+   Increment = 5,
+   Suffix = "秒",
+   CurrentValue = 45,
+   Flag = "AutoCleanupTime",
+   Callback = function(Value)
+       print("自動消去時間設定:", Value)
+   end,
+})
+
+-- クレジットタブの作成
+local CreditsTab = Window:CreateTab("📝 クレジット", 4483362458)
+
+CreditsTab:CreateSection("🎮 超豪華おもちゃコレクション")
+
+CreditsTab:CreateLabel("開発者: Ultimate Toys Team")
+CreditsTab:CreateLabel("バージョン: 2.0.0")
+CreditsTab:CreateLabel("UI: Rayfield Interface Suite")
+CreditsTab:CreateLabel("特別感謝: すべてのテスターの皆様")
+
+CreditsTab:CreateButton({
+   Name = "🌟 GitHubでスターを付ける",
+   Callback = function()
+       setclipboard("https://github.com/your-repo/ultimate-toys")
+       Rayfield:Notify({
+           Title = "GitHubリンクをコピーしました",
+           Content = "リポジトリにアクセスしてスターをお願いします！",
+           Duration = 6,
+           Image = 4483362458,
+       })
+   end,
+})
+
+-- 初期化完了通知
+Rayfield:Notify({
+   Title = "🎮 超豪華おもちゃコレクション 読み込み完了！",
+   Content = "9種類の神級おもちゃが利用可能です！",
+   Duration = 8,
+   Image = 4483362458,
+})
+
+print("🎮 超豪華おもちゃコレクション - Rayfield UI版")
+print("🏗️ 巨大建築物: マクドナルド、スターバックス、遊園地、城")
+print("🚀 スペシャル: 宇宙ステーション、未来都市、海底宮殿") 
+print("🔮 マジック: ドラゴン召喚、魔法の城")
+print("🎯 総おもちゃ数: 9種類の超豪華おもちゃ")
+print("✨ Rayfield UI: 美しいインターフェース完備")
