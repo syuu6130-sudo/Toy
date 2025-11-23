@@ -1,537 +1,744 @@
--- Fling things and people - 1100 Toys Collection
--- Rayfield UI + スマホ対応
+-- Fling things and people - Onion UI版 (Part 1/3)
+-- オブジェクトとプレイヤーを空中に浮かせる/飛ばすスクリプト
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
-local Lighting = game:GetService("Lighting")
-local HttpService = game:GetService("HttpService")
 
 local player = Players.LocalPlayer
 local mouse = player:GetMouse()
+local isMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 
--- Rayfield UI Library
-local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+-- Onion UI用変数
+local Onion = {
+    Enabled = true,
+    Debug = true,
+    Version = "2.0",
+    FlingPower = 100,
+    FloatHeight = 50
+}
 
--- スマホ対応チェック
-local IsMobile = UserInputService.TouchEnabled
+-- メインUI作成関数
+local function CreateOnionUI()
+    -- 既存のUIを削除
+    if player.PlayerGui:FindFirstChild("OnionFlingUI") then
+        player.PlayerGui:FindFirstChild("OnionFlingUI"):Destroy()
+    end
+    
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "OnionFlingUI"
+    screenGui.ResetOnSpawn = false
+    screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    screenGui.Parent = player.PlayerGui
+    
+    -- モバイル用サイズ調整
+    local uiWidth = isMobile and 300 or 380
+    local uiHeight = isMobile and 450 or 520
+    
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Name = "MainFrame"
+    mainFrame.Size = UDim2.new(0, uiWidth, 0, uiHeight)
+    mainFrame.Position = UDim2.new(0.5, -uiWidth/2, 0, 50)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+    mainFrame.BorderSizePixel = 0
+    mainFrame.Active = true
+    mainFrame.Draggable = false
+    mainFrame.Parent = screenGui
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 10)
+    corner.Parent = mainFrame
+    
+    -- タイトルバー
+    local title = Instance.new("Frame")
+    title.Name = "Title"
+    title.Size = UDim2.new(1, 0, 0, 45)
+    title.Position = UDim2.new(0, 0, 0, 0)
+    title.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+    title.BorderSizePixel = 0
+    title.Active = true
+    title.Parent = mainFrame
+    
+    local titleCorner = Instance.new("UICorner")
+    titleCorner.CornerRadius = UDim.new(0, 10)
+    titleCorner.Parent = title
+    
+    -- タイトル下部を隠すフレーム
+    local titleBottom = Instance.new("Frame")
+    titleBottom.Size = UDim2.new(1, 0, 0, 10)
+    titleBottom.Position = UDim2.new(0, 0, 1, -10)
+    titleBottom.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+    titleBottom.BorderSizePixel = 0
+    titleBottom.Parent = title
+    
+    -- タイトルテキスト
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Name = "TitleLabel"
+    titleLabel.Size = UDim2.new(1, -100, 1, 0)
+    titleLabel.Position = UDim2.new(0, 10, 0, 0)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.TextColor3 = Color3.fromRGB(255, 120, 255)
+    titleLabel.Text = "🎪 Onion Fling Toys"
+    titleLabel.TextSize = 18
+    titleLabel.Font = Enum.Font.GothamBold
+    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    titleLabel.Parent = title
+    
+    -- 最小化ボタン
+    local minimizeBtn = Instance.new("TextButton")
+    minimizeBtn.Name = "MinimizeBtn"
+    minimizeBtn.Size = UDim2.new(0, 35, 0, 35)
+    minimizeBtn.Position = UDim2.new(1, -45, 0, 5)
+    minimizeBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+    minimizeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    minimizeBtn.Text = "−"
+    minimizeBtn.TextSize = 20
+    minimizeBtn.Font = Enum.Font.GothamBold
+    minimizeBtn.BorderSizePixel = 0
+    minimizeBtn.AutoButtonColor = false
+    minimizeBtn.Parent = title
+    
+    local minBtnCorner = Instance.new("UICorner")
+    minBtnCorner.CornerRadius = UDim.new(0, 6)
+    minBtnCorner.Parent = minimizeBtn
+    
+    return screenGui, mainFrame, title, titleLabel, minimizeBtn, uiWidth, uiHeight
+end
+-- Fling things and people - Onion UI版 (Part 2/3)
+-- コントロールパネルとFling機能
 
--- おもちゃ作成関数たち
-local Toys = {}
+-- Part 1からの続き...
 
--- 既存の100個のおもちゃ関数をここに維持...
--- 1-100: 既存のおもちゃ関数
-function Toys.BounceBall()
-    local ball = Instance.new("Part")
-    ball.Name = "BounceBall"
-    ball.Shape = Enum.PartType.Ball
-    ball.Size = Vector3.new(4, 4, 4)
-    ball.BrickColor = BrickColor.new("Bright red")
-    ball.Material = Enum.Material.Neon
-    ball.Position = GetSpawnPosition()
-    ball.Parent = workspace
+-- コントロールパネル作成関数
+local function CreateControlPanel(mainFrame)
+    local controlPanel = Instance.new("Frame")
+    controlPanel.Name = "ControlPanel"
+    controlPanel.Size = UDim2.new(1, -20, 0, 80)
+    controlPanel.Position = UDim2.new(0, 10, 0, 55)
+    controlPanel.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+    controlPanel.BorderSizePixel = 0
+    controlPanel.Parent = mainFrame
+    
+    local controlCorner = Instance.new("UICorner")
+    controlCorner.CornerRadius = UDim.new(0, 8)
+    controlCorner.Parent = controlPanel
+    
+    -- パワースライダーラベル
+    local powerLabel = Instance.new("TextLabel")
+    powerLabel.Name = "PowerLabel"
+    powerLabel.Size = UDim2.new(1, -20, 0, 30)
+    powerLabel.Position = UDim2.new(0, 10, 0, 10)
+    powerLabel.BackgroundTransparency = 1
+    powerLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    powerLabel.Text = "パワー: 100"
+    powerLabel.TextSize = 14
+    powerLabel.Font = Enum.Font.Gotham
+    powerLabel.TextXAlignment = Enum.TextXAlignment.Left
+    powerLabel.Parent = controlPanel
+    
+    -- パワースライダー背景
+    local powerSlider = Instance.new("Frame")
+    powerSlider.Name = "PowerSlider"
+    powerSlider.Size = UDim2.new(1, -20, 0, 30)
+    powerSlider.Position = UDim2.new(0, 10, 0, 45)
+    powerSlider.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+    powerSlider.BorderSizePixel = 0
+    powerSlider.Parent = controlPanel
+    
+    local sliderCorner = Instance.new("UICorner")
+    sliderCorner.CornerRadius = UDim.new(0, 6)
+    sliderCorner.Parent = powerSlider
+    
+    -- スライダーフィル
+    local sliderFill = Instance.new("Frame")
+    sliderFill.Name = "SliderFill"
+    sliderFill.Size = UDim2.new(0.2, 0, 1, 0)
+    sliderFill.BackgroundColor3 = Color3.fromRGB(255, 100, 255)
+    sliderFill.BorderSizePixel = 0
+    sliderFill.Parent = powerSlider
+    
+    local fillCorner = Instance.new("UICorner")
+    fillCorner.CornerRadius = UDim.new(0, 6)
+    fillCorner.Parent = sliderFill
+    
+    -- スライダーボタン（透明で全体をカバー）
+    local sliderButton = Instance.new("TextButton")
+    sliderButton.Name = "SliderButton"
+    sliderButton.Size = UDim2.new(1, 0, 1, 0)
+    sliderButton.BackgroundTransparency = 1
+    sliderButton.Text = ""
+    sliderButton.Parent = powerSlider
+    
+    return controlPanel, powerLabel, sliderFill, sliderButton
+end
+
+-- Fling機能関数
+local Flings = {}
+
+-- 1. 自分を空中に浮かせる
+function Flings.FloatSelf()
+    local character = player.Character
+    if not character then return end
+    
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    if not humanoidRootPart then return end
     
     local bodyVelocity = Instance.new("BodyVelocity")
-    bodyVelocity.Velocity = Vector3.new(math.random(-50, 50), 100, math.random(-50, 50))
-    bodyVelocity.Parent = ball
+    bodyVelocity.Velocity = Vector3.new(0, Onion.FlingPower, 0)
+    bodyVelocity.MaxForce = Vector3.new(0, math.huge, 0)
+    bodyVelocity.Parent = humanoidRootPart
     
-    game:GetService("Debris"):AddItem(ball, 10)
+    game:GetService("Debris"):AddItem(bodyVelocity, 2)
+    
+    if Onion.Debug then
+        print("🎈 自分を浮かせました")
+    end
 end
 
--- 既存の2-100番目のおもちゃ関数も同様に定義...
-function Toys.FlyingDisk() end
-function Toys.HeliumBalloon() end
--- ... 既存の100個を維持
-
--- スマホ用スポーン位置取得関数
-local function GetSpawnPosition()
-    if IsMobile then
-        -- スマホの場合はプレイヤーの前方にスポーン
-        local character = player.Character
-        if character and character:FindFirstChild("HumanoidRootPart") then
-            return character.HumanoidRootPart.Position + character.HumanoidRootPart.CFrame.LookVector * 10
+-- 2. 最も近いプレイヤーを前方に飛ばす
+function Flings.FlingForward()
+    local character = player.Character
+    if not character then return end
+    
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    if not humanoidRootPart then return end
+    
+    local nearestPlayer = nil
+    local nearestDistance = 50
+    
+    for _, otherPlayer in pairs(Players:GetPlayers()) do
+        if otherPlayer ~= player and otherPlayer.Character then
+            local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if otherRoot then
+                local distance = (humanoidRootPart.Position - otherRoot.Position).Magnitude
+                if distance < nearestDistance then
+                    nearestPlayer = otherPlayer
+                    nearestDistance = distance
+                end
+            end
         end
     end
-    return mouse.Hit.p + Vector3.new(0, 5, 0)
+    
+    if nearestPlayer and nearestPlayer.Character then
+        local targetRoot = nearestPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if targetRoot then
+            local direction = humanoidRootPart.CFrame.LookVector
+            local bodyVelocity = Instance.new("BodyVelocity")
+            bodyVelocity.Velocity = direction * Onion.FlingPower + Vector3.new(0, 50, 0)
+            bodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+            bodyVelocity.Parent = targetRoot
+            
+            game:GetService("Debris"):AddItem(bodyVelocity, 1.5)
+            
+            if Onion.Debug then
+                print("🚀 " .. nearestPlayer.Name .. "を飛ばしました")
+            end
+        end
+    end
 end
 
--- 101-1100: 新しい1000個のおもちゃ関数を自動生成
-local ToyCategories = {
-    "Classic", "Magic", "Tech", "Nature", "Vehicle", "Weapon", "Food", 
-    "Animal", "Fantasy", "SciFi", "Sports", "Music", "Art", "Building",
-    "Water", "Fire", "Ice", "Electric", "Wind", "Earth"
-}
+-- 3. 周囲の他のプレイヤー全員を浮かせる
+function Flings.FloatNearby()
+    local character = player.Character
+    if not character then return end
+    
+    local rootPart = character:FindFirstChild("HumanoidRootPart")
+    if not rootPart then return end
+    
+    local count = 0
+    for _, otherPlayer in pairs(Players:GetPlayers()) do
+        if otherPlayer ~= player and otherPlayer.Character then
+            local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if otherRoot then
+                local distance = (rootPart.Position - otherRoot.Position).Magnitude
+                if distance < 30 then
+                    local bodyVelocity = Instance.new("BodyVelocity")
+                    bodyVelocity.Velocity = Vector3.new(0, Onion.FlingPower, 0)
+                    bodyVelocity.MaxForce = Vector3.new(0, math.huge, 0)
+                    bodyVelocity.Parent = otherRoot
+                    
+                    game:GetService("Debris"):AddItem(bodyVelocity, 2)
+                    count = count + 1
+                end
+            end
+        end
+    end
+    
+    if Onion.Debug then
+        print("👥 " .. count .. "人を浮かせました")
+    end
+end
 
-local ToyAdjectives = {
-    "Super", "Mega", "Ultra", "Hyper", "Epic", "Legendary", "Mystic", 
-    "Magic", "Golden", "Crystal", "Rainbow", "Neon", "Glowing", "Floating",
-    "Spinning", "Bouncing", "Flying", "Jumping", "Running", "Dancing"
-}
-
-local ToyTypes = {
-    "Ball", "Cube", "Sphere", "Pyramid", "Ring", "Disk", "Star", "Heart",
-    "Box", "Cylinder", "Cone", "Wedge", "Toy", "Device", "Machine", "Tool",
-    "Gadget", "Thing", "Object", "Item", "Creature", "Monster", "Robot"
-}
-
--- 自動生成関数
-local function GenerateToyFunction(toyId)
-    return function()
-        local category = ToyCategories[math.random(1, #ToyCategories)]
-        local adjective = ToyAdjectives[math.random(1, #ToyAdjectives)]
-        local toyType = ToyTypes[math.random(1, #ToyTypes)]
-        
-        local part = Instance.new("Part")
-        part.Name = adjective .. toyType .. toyId
-        part.Size = Vector3.new(
-            math.random(2, 8),
-            math.random(2, 8),
-            math.random(2, 8)
+-- 4. マウス位置のオブジェクトを飛ばす
+function Flings.FlingTarget()
+    local target = mouse.Target
+    if target and not target.Anchored and target.Parent then
+        local bodyVelocity = Instance.new("BodyVelocity")
+        bodyVelocity.Velocity = Vector3.new(
+            math.random(-Onion.FlingPower, Onion.FlingPower),
+            Onion.FlingPower,
+            math.random(-Onion.FlingPower, Onion.FlingPower)
         )
+        bodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+        bodyVelocity.Parent = target
         
-        -- ランダムな形状
-        local shapes = {Enum.PartType.Block, Enum.PartType.Ball, Enum.PartType.Cylinder}
-        part.Shape = shapes[math.random(1, #shapes)]
+        game:GetService("Debris"):AddItem(bodyVelocity, 1.5)
         
-        -- ランダムな色とマテリアル
-        local colors = {
-            BrickColor.new("Bright red"), BrickColor.new("Bright blue"), 
-            BrickColor.new("Bright yellow"), BrickColor.new("Bright green"),
-            BrickColor.new("Bright orange"), BrickColor.new("Bright violet"),
-            BrickColor.new("Hot pink"), BrickColor.new("New Yeller"),
-            BrickColor.new("Really black"), BrickColor.new("White")
-        }
-        part.BrickColor = colors[math.random(1, #colors)]
-        
-        local materials = {
-            Enum.Material.Plastic, Enum.Material.Neon, Enum.Material.Metal,
-            Enum.Material.Wood, Enum.Material.Glass, Enum.Material.Fabric
-        }
-        part.Material = materials[math.random(1, #materials)]
-        
-        part.Position = GetSpawnPosition()
-        part.Parent = workspace
-        
-        -- ランダムな特殊効果
-        local effects = {
-            function(p)
-                local velocity = Instance.new("BodyVelocity")
-                velocity.Velocity = Vector3.new(
-                    math.random(-50, 50),
-                    math.random(30, 100),
-                    math.random(-50, 50)
-                )
-                velocity.Parent = p
-                game:GetService("Debris"):AddItem(velocity, 3)
-            end,
-            function(p)
-                local spin = Instance.new("BodyAngularVelocity")
-                spin.AngularVelocity = Vector3.new(
-                    math.random(-20, 20),
-                    math.random(-20, 20),
-                    math.random(-20, 20)
-                )
-                spin.MaxTorque = Vector3.new(10000, 10000, 10000)
-                spin.Parent = p
-                game:GetService("Debris"):AddItem(spin, 5)
-            end,
-            function(p)
-                local float = Instance.new("BodyForce")
-                float.Force = Vector3.new(0, p:GetMass() * workspace.Gravity * 1.5, 0)
-                float.Parent = p
-            end,
-            function(p)
-                local light = Instance.new("PointLight")
-                light.Brightness = math.random(3, 8)
-                light.Range = math.random(10, 20)
-                light.Color = Color3.new(math.random(), math.random(), math.random())
-                light.Parent = p
-            end,
-            function(p)
-                local fire = Instance.new("Fire")
-                fire.Size = math.random(5, 15)
-                fire.Heat = math.random(5, 15)
-                fire.Parent = p
-            end,
-            function(p)
-                local smoke = Instance.new("Smoke")
-                smoke.Size = math.random(3, 8)
-                smoke.RiseVelocity = math.random(3, 10)
-                smoke.Color = Color3.new(math.random(), math.random(), math.random())
-                smoke.Parent = p
-            end
-        }
-        
-        -- 1-3個のランダムな効果を適用
-        local numEffects = math.random(1, 3)
-        for i = 1, numEffects do
-            effects[math.random(1, #effects)](part)
+        if Onion.Debug then
+            print("🎯 " .. target.Name .. "を飛ばしました")
         end
-        
-        -- 生存時間
-        local lifetime = math.random(8, 25)
-        game:GetService("Debris"):AddItem(part, lifetime)
-        
-        if math.random(1, 10) == 1 then
-            -- 10%の確率で特別なサウンド効果
-            local sound = Instance.new("Sound")
-            sound.SoundId = "rbxassetid://" .. tostring(math.random(1000000, 9999999))
-            sound.Volume = 0.3
-            sound.Parent = part
-            sound:Play()
+    else
+        if Onion.Debug then
+            print("❌ 対象が見つかりません")
         end
     end
 end
 
--- 101-1100番目のおもちゃ関数を生成
-for i = 101, 1100 do
-    Toys["Toy" .. i] = GenerateToyFunction(i)
+-- 5. 最も近いプレイヤーをランダム方向に飛ばす
+function Flings.RandomFling()
+    local character = player.Character
+    if not character then return end
+    
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    if not humanoidRootPart then return end
+    
+    local nearestPlayer = nil
+    local nearestDistance = 50
+    
+    for _, otherPlayer in pairs(Players:GetPlayers()) do
+        if otherPlayer ~= player and otherPlayer.Character then
+            local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if otherRoot then
+                local distance = (humanoidRootPart.Position - otherRoot.Position).Magnitude
+                if distance < nearestDistance then
+                    nearestPlayer = otherPlayer
+                    nearestDistance = distance
+                end
+            end
+        end
+    end
+    
+    if nearestPlayer and nearestPlayer.Character then
+        local targetRoot = nearestPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if targetRoot then
+            local bodyVelocity = Instance.new("BodyVelocity")
+            bodyVelocity.Velocity = Vector3.new(
+                math.random(-Onion.FlingPower, Onion.FlingPower),
+                math.random(50, Onion.FlingPower),
+                math.random(-Onion.FlingPower, Onion.FlingPower)
+            )
+            bodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+            bodyVelocity.Parent = targetRoot
+            
+            game:GetService("Debris"):AddItem(bodyVelocity, 1.5)
+            
+            if Onion.Debug then
+                print("🎲 " .. nearestPlayer.Name .. "をランダムに飛ばしました")
+            end
+        end
+    end
+end
+-- Fling things and people - Onion UI版 (Part 3/3 - 完成版)
+-- 残りのFling機能、UIボタン、ドラッグ機能、初期化
+
+-- Part 2からの続き...
+
+-- 6. 最も近いプレイヤーを回転させながら浮かせる
+function Flings.SpinFloat()
+    local character = player.Character
+    if not character then return end
+    
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    if not humanoidRootPart then return end
+    
+    local nearestPlayer = nil
+    local nearestDistance = 50
+    
+    for _, otherPlayer in pairs(Players:GetPlayers()) do
+        if otherPlayer ~= player and otherPlayer.Character then
+            local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if otherRoot then
+                local distance = (humanoidRootPart.Position - otherRoot.Position).Magnitude
+                if distance < nearestDistance then
+                    nearestPlayer = otherPlayer
+                    nearestDistance = distance
+                end
+            end
+        end
+    end
+    
+    if nearestPlayer and nearestPlayer.Character then
+        local targetRoot = nearestPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if targetRoot then
+            local bodyVelocity = Instance.new("BodyVelocity")
+            bodyVelocity.Velocity = Vector3.new(0, Onion.FlingPower * 0.8, 0)
+            bodyVelocity.MaxForce = Vector3.new(0, math.huge, 0)
+            bodyVelocity.Parent = targetRoot
+            
+            local bodyAngularVelocity = Instance.new("BodyAngularVelocity")
+            bodyAngularVelocity.AngularVelocity = Vector3.new(0, 50, 0)
+            bodyAngularVelocity.MaxTorque = Vector3.new(0, math.huge, 0)
+            bodyAngularVelocity.Parent = targetRoot
+            
+            game:GetService("Debris"):AddItem(bodyVelocity, 3)
+            game:GetService("Debris"):AddItem(bodyAngularVelocity, 3)
+            
+            if Onion.Debug then
+                print("🌀 " .. nearestPlayer.Name .. "を回転させました")
+            end
+        end
+    end
 end
 
--- Rayfield UI 作成
-local Window = Rayfield:CreateWindow({
-   Name = "🎮 1100 Toys Collection",
-   LoadingTitle = "Fling things and people - おもちゃコレクション",
-   LoadingSubtitle = "by Onion UI",
-   ConfigurationSaving = {
-      Enabled = true,
-      FolderName = "OnionToys",
-      FileName = "Config"
-   },
-   Discord = {
-      Enabled = false,
-      Invite = "noinvitelink",
-      RememberJoins = true
-   },
-   KeySystem = false,
-})
+-- 7. 月面ジャンプ（低重力）
+function Flings.MoonJump()
+    local character = player.Character
+    if not character then return end
+    
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    if not humanoidRootPart then return end
+    
+    local bodyForce = Instance.new("BodyForce")
+    bodyForce.Force = Vector3.new(0, humanoidRootPart:GetMass() * workspace.Gravity * 0.9, 0)
+    bodyForce.Parent = humanoidRootPart
+    
+    game:GetService("Debris"):AddItem(bodyForce, 10)
+    
+    if Onion.Debug then
+        print("🌙 月面ジャンプを有効にしました")
+    end
+end
 
--- メインタブ
-local MainTab = Window:CreateTab("🎯 メインおもちゃ", 4483362458)
+-- 8. 周囲のプレイヤー全員を爆発で飛ばす
+function Flings.ExplosiveFling()
+    local character = player.Character
+    if not character then return end
+    
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    if not humanoidRootPart then return end
+    
+    local count = 0
+    for _, otherPlayer in pairs(Players:GetPlayers()) do
+        if otherPlayer ~= player and otherPlayer.Character then
+            local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if otherRoot then
+                local distance = (humanoidRootPart.Position - otherRoot.Position).Magnitude
+                if distance < 40 then
+                    local explosion = Instance.new("Explosion")
+                    explosion.Position = otherRoot.Position
+                    explosion.BlastPressure = Onion.FlingPower * 1000
+                    explosion.BlastRadius = 10
+                    explosion.Parent = workspace
+                    count = count + 1
+                end
+            end
+        end
+    end
+    
+    if Onion.Debug then
+        print("💥 " .. count .. "人を爆発で飛ばしました")
+    end
+end
 
--- カテゴリ別にセクションを作成
-local sections = {
-    {"🏀 物理おもちゃ", {1, 50}},
-    {"🌟 光とエフェクト", {51, 100}},
-    {"⚡ インタラクティブ", {101, 150}},
-    {"🎮 ゲーム要素", {151, 200}},
-    {"🔮 特殊能力", {201, 250}},
-    {"🎵 音楽とサウンド", {251, 300}},
-    {"🌪️ 自然現象", {301, 350}},
-    {"🚗 乗り物", {351, 400}},
-    {"🎨 クリエイティブ", {401, 450}},
-    {"🌈 スペシャル", {451, 500}}
+-- 9. 最も近いプレイヤーを天井まで飛ばす
+function Flings.SkyRocket()
+    local character = player.Character
+    if not character then return end
+    
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    if not humanoidRootPart then return end
+    
+    local nearestPlayer = nil
+    local nearestDistance = 50
+    
+    for _, otherPlayer in pairs(Players:GetPlayers()) do
+        if otherPlayer ~= player and otherPlayer.Character then
+            local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if otherRoot then
+                local distance = (humanoidRootPart.Position - otherRoot.Position).Magnitude
+                if distance < nearestDistance then
+                    nearestPlayer = otherPlayer
+                    nearestDistance = distance
+                end
+            end
+        end
+    end
+    
+    if nearestPlayer and nearestPlayer.Character then
+        local targetRoot = nearestPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if targetRoot then
+            local bodyVelocity = Instance.new("BodyVelocity")
+            bodyVelocity.Velocity = Vector3.new(0, Onion.FlingPower * 2, 0)
+            bodyVelocity.MaxForce = Vector3.new(0, math.huge, 0)
+            bodyVelocity.Parent = targetRoot
+            
+            game:GetService("Debris"):AddItem(bodyVelocity, 5)
+            
+            if Onion.Debug then
+                print("☁️ " .. nearestPlayer.Name .. "をロケットで飛ばしました")
+            end
+        end
+    end
+end
+
+-- 10. 最も近いプレイヤーを宙返りさせる
+function Flings.Backflip()
+    local character = player.Character
+    if not character then return end
+    
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    if not humanoidRootPart then return end
+    
+    local nearestPlayer = nil
+    local nearestDistance = 50
+    
+    for _, otherPlayer in pairs(Players:GetPlayers()) do
+        if otherPlayer ~= player and otherPlayer.Character then
+            local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if otherRoot then
+                local distance = (humanoidRootPart.Position - otherRoot.Position).Magnitude
+                if distance < nearestDistance then
+                    nearestPlayer = otherPlayer
+                    nearestDistance = distance
+                end
+            end
+        end
+    end
+    
+    if nearestPlayer and nearestPlayer.Character then
+        local targetRoot = nearestPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if targetRoot then
+            local bodyVelocity = Instance.new("BodyVelocity")
+            bodyVelocity.Velocity = Vector3.new(0, Onion.FlingPower * 0.7, 0)
+            bodyVelocity.MaxForce = Vector3.new(0, math.huge, 0)
+            bodyVelocity.Parent = targetRoot
+            
+            local bodyAngularVelocity = Instance.new("BodyAngularVelocity")
+            bodyAngularVelocity.AngularVelocity = targetRoot.CFrame.RightVector * -20
+            bodyAngularVelocity.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+            bodyAngularVelocity.Parent = targetRoot
+            
+            game:GetService("Debris"):AddItem(bodyVelocity, 2)
+            game:GetService("Debris"):AddItem(bodyAngularVelocity, 2)
+            
+            if Onion.Debug then
+                print("🤸 " .. nearestPlayer.Name .. "を宙返りさせました")
+            end
+        end
+    end
+end
+
+-- Flingリスト
+local flingList = {
+    {"🎈 自分を浮かせる", Flings.FloatSelf, Color3.fromRGB(100, 200, 255)},
+    {"🚀 近くの人を飛ばす", Flings.FlingForward, Color3.fromRGB(255, 150, 100)},
+    {"👥 周囲全員浮かせる", Flings.FloatNearby, Color3.fromRGB(150, 255, 150)},
+    {"🎯 対象を飛ばす", Flings.FlingTarget, Color3.fromRGB(255, 100, 150)},
+    {"🎲 近くの人ランダム", Flings.RandomFling, Color3.fromRGB(200, 100, 255)},
+    {"🌀 近くの人回転", Flings.SpinFloat, Color3.fromRGB(100, 255, 255)},
+    {"🌙 月面ジャンプ", Flings.MoonJump, Color3.fromRGB(200, 200, 255)},
+    {"💥 周囲全員爆発", Flings.ExplosiveFling, Color3.fromRGB(255, 100, 100)},
+    {"☁️ 近くの人ロケット", Flings.SkyRocket, Color3.fromRGB(150, 200, 255)},
+    {"🤸 近くの人宙返り", Flings.Backflip, Color3.fromRGB(255, 200, 100)},
 }
 
--- 自動生成おもちゃ用セクション
-local autoSections = {
-    {"🎲 クラシックおもちゃ", {501, 600}},
-    {"🔮 マジックおもちゃ", {601, 700}},
-    {"🤖 テックおもちゃ", {701, 800}},
-    {"🌿 ネイチャーおもちゃ", {801, 900}},
-    {"🎯 スポーツおもちゃ", {901, 1000}},
-    {"✨ スペシャルコレクション", {1001, 1100}}
-}
-
--- 検索機能用の全おもちゃリスト
-local AllToys = {}
-
--- おもちゃボタンを作成する関数
-local function CreateToyButtons(tab, toyRange, sectionName)
-    local section = tab:CreateSection(sectionName)
+-- スクロールフレームとボタン作成
+local function CreateScrollAndButtons(mainFrame)
+    local scroll = Instance.new("ScrollingFrame")
+    scroll.Name = "Scroll"
+    scroll.Size = UDim2.new(1, -20, 1, -155)
+    scroll.Position = UDim2.new(0, 10, 0, 145)
+    scroll.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+    scroll.BorderSizePixel = 0
+    scroll.ScrollBarThickness = 6
+    scroll.ScrollBarImageColor3 = Color3.fromRGB(255, 100, 255)
+    scroll.Parent = mainFrame
     
-    for i = toyRange[1], toyRange[2] do
-        local toyName = ""
-        local toyFunction = nil
+    local scrollCorner = Instance.new("UICorner")
+    scrollCorner.CornerRadius = UDim.new(0, 8)
+    scrollCorner.Parent = scroll
+    
+    local layout = Instance.new("UIListLayout")
+    layout.Padding = UDim.new(0, 8)
+    layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    layout.Parent = scroll
+    
+    local padding = Instance.new("UIPadding")
+    padding.PaddingTop = UDim.new(0, 10)
+    padding.PaddingBottom = UDim.new(0, 10)
+    padding.Parent = scroll
+    
+    -- Flingボタンを作成
+    for _, fling in ipairs(flingList) do
+        local button = Instance.new("TextButton")
+        button.Size = UDim2.new(1, -20, 0, 45)
+        button.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+        button.TextColor3 = Color3.fromRGB(255, 255, 255)
+        button.Text = fling[1]
+        button.Font = Enum.Font.GothamSemibold
+        button.TextSize = 16
+        button.BorderSizePixel = 0
+        button.AutoButtonColor = false
+        button.Parent = scroll
         
-        if i <= 100 then
-            -- 既存のおもちゃ
-            toyName = tostring(i) .. ". 既存おもちゃ " .. i
-            toyFunction = Toys["Toy" .. i] or GenerateToyFunction(i)
-        else
-            -- 自動生成おもちゃ
-            local category = ToyCategories[math.random(1, #ToyCategories)]
-            local adjective = ToyAdjectives[math.random(1, #ToyAdjectives)]
-            local toyType = ToyTypes[math.random(1, #ToyTypes)]
-            toyName = tostring(i) .. ". " .. adjective .. " " .. category .. " " .. toyType
-            toyFunction = Toys["Toy" .. i]
-        end
+        local corner = Instance.new("UICorner")
+        corner.CornerRadius = UDim.new(0, 8)
+        corner.Parent = button
         
-        -- ボタン作成
-        local button = tab:CreateButton({
-            Name = toyName,
-            Callback = function()
-                toyFunction()
-                Rayfield:Notify({
-                    Title = "おもちゃ起動",
-                    Content = toyName .. " をスポーンしました!",
-                    Duration = 2,
-                    Image = 4483362458
-                })
-            end,
-        })
+        local accent = Instance.new("Frame")
+        accent.Size = UDim2.new(0, 4, 1, -10)
+        accent.Position = UDim2.new(0, 5, 0, 5)
+        accent.BackgroundColor3 = fling[3]
+        accent.BorderSizePixel = 0
+        accent.Parent = button
         
-        -- 検索用にリストに追加
-        table.insert(AllToys, {
-            Name = toyName,
-            Id = i,
-            Button = button
-        })
-    end
-end
-
--- メインおもちゃセクションを作成
-for _, sectionData in ipairs(sections) do
-    CreateToyButtons(MainTab, sectionData[2], sectionData[1])
-end
-
--- 自動生成おもちゃタブ
-local AutoTab = Window:CreateTab("🎲 自動生成おもちゃ", 4483362458)
-
-for _, sectionData in ipairs(autoSections) do
-    CreateToyButtons(AutoTab, sectionData[2], sectionData[1])
-end
-
--- 検索タブ
-local SearchTab = Window:CreateTab("🔍 検索", 4483362458)
-
-local SearchBox = SearchTab:CreateInput({
-    Name = "おもちゃ検索",
-    PlaceholderText = "おもちゃ名を入力...",
-    RemoveTextAfterFocusLost = false,
-    Callback = function(Text)
-        -- 検索機能
-        for _, toy in ipairs(AllToys) do
-            if string.find(string.lower(toy.Name), string.lower(Text)) then
-                toy.Button:Show()
-            else
-                toy.Button:Hide()
-            end
-        end
-    end,
-})
-
--- 検索リセットボタン
-SearchTab:CreateButton({
-    Name = "検索リセット",
-    Callback = function()
-        SearchBox:Set("")
-        for _, toy in ipairs(AllToys) do
-            toy.Button:Show()
-        end
-    end,
-})
-
--- 一括操作セクション
-local BulkSection = SearchTab:CreateSection("一括操作")
-
-SearchTab:CreateButton({
-    Name = "🎉 ランダムおもちゃ10個",
-    Callback = function()
-        for i = 1, 10 do
-            local randomToy = math.random(1, 1100)
-            if Toys["Toy" .. randomToy] then
-                Toys["Toy" .. randomToy]()
-            end
-        end
-        Rayfield:Notify({
-            Title = "ランダムおもちゃ",
-            Content = "10個のおもちゃをスポーンしました!",
-            Duration = 3,
-            Image = 4483362458
-        })
-    end,
-})
-
-SearchTab:CreateButton({
-    Name = "🧹 おもちゃ全消去",
-    Callback = function()
-        for _, obj in pairs(workspace:GetChildren()) do
-            if string.find(obj.Name, "Toy") or string.find(obj.Name, "Bounce") or 
-               string.find(obj.Name, "Spring") or string.find(obj.Name, "Laser") then
-                obj:Destroy()
-            end
-        end
-        Rayfield:Notify({
-            Title = "クリーンアップ",
-            Content = "すべてのおもちゃを消去しました!",
-            Duration = 2,
-            Image = 4483362458
-        })
-    end,
-})
-
--- 設定タブ
-local SettingsTab = Window:CreateTab("⚙️ 設定", 4483362458)
-
-SettingsTab:CreateSection("UI設定")
-
-local UIScale = SettingsTab:CreateSlider({
-    Name = "UIスケール",
-    Range = {50, 200},
-    Increment = 10,
-    Suffix = "%",
-    CurrentValue = 100,
-    Flag = "UIScale",
-    Callback = function(Value)
-        -- UIスケール調整（Rayfieldが自動処理）
-    end,
-})
-
-SettingsTab:CreateToggle({
-    Name = "スマホ最適化モード",
-    CurrentValue = IsMobile,
-    Flag = "MobileMode",
-    Callback = function(Value)
-        Rayfield:Notify({
-            Title = "設定変更",
-            Content = "スマホモード: " .. tostring(Value),
-            Duration = 2,
-            Image = 4483362458
-        })
-    end,
-})
-
-SettingsTab:CreateSection("おもちゃ設定")
-
-local SpawnDistance = SettingsTab:CreateSlider({
-    Name = "スポーン距離",
-    Range = {5, 50},
-    Increment = 5,
-    Suffix = "スタッド",
-    CurrentValue = 10,
-    Flag = "SpawnDistance",
-    Callback = function(Value)
-        -- スポーン距離設定
-    end,
-})
-
-SettingsTab:CreateToggle({
-    Name = "自動クリーンアップ",
-    CurrentValue = true,
-    Flag = "AutoCleanup",
-    Callback = function(Value)
-        Rayfield:Notify({
-            Title = "設定変更",
-            Content = "自動クリーンアップ: " .. tostring(Value),
-            Duration = 2,
-            Image = 4483362458
-        })
-    end,
-})
-
--- クレジットタブ
-local CreditTab = Window:CreateTab("📝 クレジット", 4483362458)
-
-CreditTab:CreateSection("情報")
-
-CreditTab:CreateLabel("🎮 1100 Toys Collection")
-CreditTab:CreateLabel("📱 スマホ対応版")
-CreditTab:CreateLabel("✨ Rayfield UI 使用")
-CreditTab:CreateLabel("🎯 合計1100種類のおもちゃ!")
-
-CreditTab:CreateButton({
-    Name = "🎉 スペシャルエフェクトテスト",
-    Callback = function()
-        -- スペシャルエフェクト
-        for i = 1, 20 do
-            spawn(function()
-                local firework = Instance.new("Part")
-                firework.Size = Vector3.new(1, 1, 1)
-                firework.BrickColor = BrickColor.Random()
-                firework.Material = Enum.Material.Neon
-                firework.Position = GetSpawnPosition() + Vector3.new(
-                    math.random(-20, 20),
-                    math.random(5, 15),
-                    math.random(-20, 20)
-                )
-                firework.Parent = workspace
+        local accentCorner = Instance.new("UICorner")
+        accentCorner.CornerRadius = UDim.new(1, 0)
+        accentCorner.Parent = accent
+        
+        button.MouseButton1Click:Connect(function()
+            if Onion.Enabled then
+                button.BackgroundColor3 = fling[3]
+                fling[2]()
                 
-                local velocity = Instance.new("BodyVelocity")
-                velocity.Velocity = Vector3.new(0, 100, 0)
-                velocity.Parent = firework
-                
-                local light = Instance.new("PointLight")
-                light.Brightness = 5
-                light.Range = 10
-                light.Color = Color3.new(math.random(), math.random(), math.random())
-                light.Parent = firework
-                
-                game:GetService("Debris"):AddItem(firework, 8)
-            end)
-            wait(0.2)
-        end
+                TweenService:Create(button, TweenInfo.new(0.3), {
+                    BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+                }):Play()
+            end
+        end)
         
-        Rayfield:Notify({
-            Title = "スペシャルエフェクト!",
-            Content = "20個の花火を発射しました!",
-            Duration = 4,
-            Image = 4483362458
-        })
-    end,
-})
-
--- スマホ用クイックアクセス
-if IsMobile then
-    local QuickTab = Window:CreateTab("📱 クイックアクセス", 4483362458)
-    
-    QuickTab:CreateSection("よく使うおもちゃ")
-    
-    local quickToys = {
-        {"🎈 風船", Toys.HeliumBalloon},
-        {"🏀 バウンドボール", Toys.BounceBall},
-        {"🔄 スピニングトップ", Toys.SpinningTop},
-        {"🎯 テレポート", Toys.TeleportPad},
-        {"🌈 レインボー", Toys.RainbowLight},
-        {"✨ 花火", Toys.Fireworks},
-        {"🌀 竜巻", Toys.Tornado},
-        {"🚗 ロケットカー", Toys.RocketCar}
-    }
-    
-    for _, toyData in ipairs(quickToys) do
-        QuickTab:CreateButton({
-            Name = toyData[1],
-            Callback = function()
-                toyData[2]()
-                Rayfield:Notify({
-                    Title = "クイックアクセス",
-                    Content = toyData[1] .. " をスポーン!",
-                    Duration = 2,
-                    Image = 4483362458
-                })
-            end,
-        })
-    end
-end
-
--- 初期化完了通知
-Rayfield:Notify({
-    Title = "🎮 1100 Toys Collection 読み込み完了!",
-    Content = "スマホ対応版 - 合計1100種類のおもちゃが利用可能です!",
-    Duration = 6,
-    Image = 4483362458
-})
-
-print("🎮 1100 Toys Collection - Rayfield UI + スマホ対応")
-print("📱 モバイルデバイス: " .. tostring(IsMobile))
-print("🎯 総おもちゃ数: 1100種類")
-print("✨ UIシステム: Rayfield")
-
--- スマホ用タッチコントロール（オプション）
-if IsMobile then
-    -- タッチジェスチャー検出（シンプル版）
-    local function SetupTouchControls()
-        -- ここにタッチコントロールのコードを追加可能
-        print("📱 タッチコントロール: 有効")
+        button.MouseEnter:Connect(function()
+            TweenService:Create(button, TweenInfo.new(0.2), {
+                BackgroundColor3 = Color3.fromRGB(65, 65, 75)
+            }):Play()
+        end)
+        
+        button.MouseLeave:Connect(function()
+            TweenService:Create(button, TweenInfo.new(0.2), {
+                BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+            }):Play()
+        end)
     end
     
-    -- プレイヤーがスポーンしたらコントロールを設定
-    if player.Character then
-        SetupTouchControls()
-    end
-    
-    player.CharacterAdded:Connect(function(character)
-        SetupTouchControls()
+    layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        scroll.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 20)
     end)
+    
+    return scroll
 end
+
+-- メイン初期化関数（Part 1, 2, 3を全て統合）
+local function Initialize()
+    -- Part 1から
+    local screenGui, mainFrame, title, titleLabel, minimizeBtn, uiWidth, uiHeight = CreateOnionUI()
+    
+    -- Part 2から
+    local controlPanel, powerLabel, sliderFill, sliderButton = CreateControlPanel(mainFrame)
+    
+    -- Part 3から
+    local scroll = CreateScrollAndButtons(mainFrame)
+    
+    -- スライダー機能
+    local draggingSlider = false
+    
+    sliderButton.MouseButton1Down:Connect(function()
+        draggingSlider = true
+    end)
+    
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            draggingSlider = false
+        end
+    end)
+    
+    UserInputService.InputChanged:Connect(function(input)
+        if draggingSlider and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            local relativeX = math.clamp((input.Position.X - sliderButton.AbsolutePosition.X) / sliderButton.AbsoluteSize.X, 0, 1)
+            sliderFill.Size = UDim2.new(relativeX, 0, 1, 0)
+            Onion.FlingPower = math.floor(relativeX * 250 + 50)
+            powerLabel.Text = "パワー: " .. Onion.FlingPower
+        end
+    end)
+    
+    -- 最小化機能
+    local isMinimized = false
+    local originalSize = mainFrame.Size
+    
+    minimizeBtn.MouseButton1Click:Connect(function()
+        isMinimized = not isMinimized
+        
+        if isMinimized then
+            TweenService:Create(mainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
+                Size = UDim2.new(0, uiWidth, 0, 45)
+            }):Play()
+            minimizeBtn.Text = "+"
+            controlPanel.Visible = false
+            scroll.Visible = false
+        else
+            TweenService:Create(mainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
+                Size = originalSize
+            }):Play()
+            minimizeBtn.Text = "−"
+            task.wait(0.1)
+            controlPanel.Visible = true
+            scroll.Visible = true
+        end
+    end)
+    
+    minimizeBtn.MouseEnter:Connect(function()
+        TweenService:Create(minimizeBtn, TweenInfo.new(0.2), {
+            BackgroundColor3 = Color3.fromRGB(255, 120, 255)
+        }):Play()
+    end)
+    
+    minimizeBtn.MouseLeave:Connect(function()
+        TweenService:Create(minimizeBtn, TweenInfo.new(0.2), {
+            BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+        }):Play()
+    end)
+    
+    -- ドラッグ機能（PC・スマホ両対応）
+    local dragging = false
+    local dragInput, dragStart, startPos
+    
+    title.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = mainFrame.Position
+            
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+    
+    title.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
+    
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and input == dragInput then
+            local delta = input.Position - dragStart
+            mainFrame.Position = UDim2.new(
+                startPos.X.Scale, 
+                startPos.X.Offset + delta.X,
+                startPos.Y.Scale, 
+                startPos.Y.Offset + delta.Y
+            )
+        end
+    end)
+    
+    print("🎪 Onion Fling Toys UI 読み込み完了!")
+    print("🎯 他のプレイヤーを飛ばす機能が利用可能です")
+    print("💡 " .. (isMobile and "タイトルをタップしてドラッグ可能" or "タイトルバーをドラッグして移動、−ボタンで最小化"))
+    print("⚡ パワースライダーで威力調整可能 (50-300)")
+end
+
+-- スクリプト実行
+Initialize()
